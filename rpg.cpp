@@ -7,6 +7,7 @@
 #define DEF_FORCE_MODIFIER 5
 #define DEF_DEFENCE 5
 #define DEF_LENGTH 10
+#define RUN_AWAY_ODDS 3
 
 using namespace std;
 
@@ -34,10 +35,10 @@ class Entity{
         else {
             this->name = getRandomName();
             this->type = getRandomType();
-            this->health = (int)(80 + (static_cast<double>(rand()) / RAND_MAX)*2*20);
-            this->force = (int)(20 + (static_cast<double>(rand()) / RAND_MAX)*2*10);
-            this->forceModifier = (int)(5 + (static_cast<double>(rand()) / RAND_MAX)*2*3);
-            this->defence = (int)(5 + (static_cast<double>(rand()) / RAND_MAX)*2*3);
+            this->health = (int)(60 + (static_cast<double>(rand()) / RAND_MAX)*2*20);
+            this->force = (int)(15 + (static_cast<double>(rand()) / RAND_MAX)*2*10);
+            this->forceModifier = (int)(2 + (static_cast<double>(rand()) / RAND_MAX)*2*3);
+            this->defence = (int)(2 + (static_cast<double>(rand()) / RAND_MAX)*2*3);
         }
     }
 
@@ -60,16 +61,28 @@ class Entity{
     void getDamaged(int value) {
         int damage = defence - value;
         if (damage < 0) {
-            health -= value;
+            health += damage;
+            cout << name << " recieved " << damage << " damage !\n";
+        }
+        else {
+            cout << name << " wasn't hurt by the attack\n";
         }
     }
 
-    bool isAlive() {
-        return health > 0;
+    bool isAlive(bool display) {
+        if (health <= 0) {
+            if (display){
+                cout << name << " was defeated !\n";
+            }
+            return false;
+        }
+        return true;
     }
 
-    void attack(Entity enemy) {
-        enemy.getDamaged(force - forceModifier + (static_cast<double>(rand()) / RAND_MAX)*2*forceModifier);
+    void attack(Entity &enemy) {
+        int attackForce = (int)(force - forceModifier + (static_cast<double>(rand()) / RAND_MAX)*2*forceModifier);
+        cout << name << " attacked " << enemy.getName() << " with a force of " << attackForce << " !\n";
+        enemy.getDamaged(attackForce);
     }
 
     static string getRandomName() {
@@ -87,47 +100,84 @@ class Player : public Entity {
     public :
     Player (string name) : Entity (name) {}
 
+    bool runFrom(Entity enemy) {
+        float dice = (static_cast<float>(rand()) / RAND_MAX);
+        if (dice < 1.0/RUN_AWAY_ODDS) {
+            cout << "You successfully run away from " << enemy.getFullTitle() << "!\n";
+            return true;
+        }
+        cout << "You failed to escape from the fight!\n";
+        return false;
+    }
+
 };
 
 const string Entity::defaultName[10] = {"David", "Lysandre", "Albator", "Reinhardt", "Condoriano", "Eustache", "Lystérine", "Elowenn", "Aldaric", "Zéphyrion"};
 const string Entity::defaultType[10] = {"Dark Elf", "Corrupted Dwarf", "Thief", "Orc", "Pirate", "Technomancer", "Ghoul", "Dark Mage", "Vampire", "Werewolf"};
 
 Player setup() {
-    cout << "********************\n** RPG BATTLE SIM **\n********************\n";
+    cout << "********************\n** RPG BATTLE SIM **\n********************\n\n";
     cout << "Enter your name :\n";
     string s;
     cin >> s;
     Player res = Player(s);
-    cout << "--> You are now " << res.getFullTitle() << "\n";
+    cout << "--> You are now " << res.getFullTitle() << "\nPrepare to enter the dungeon !\n\n";
     return res;
 }
 
-bool choice() {
-    cout << "Do you want to :\n\t>> Fight ? Press [F]\n\t>> Run ? Press [R]\n";
+bool choice(string option1, string option2) {
+    cout << "Do you want to :\n\t>> " << option1 << " ? Press [1]\n\t>> " << option2 << " ? Press [2]\n";
     char c;
     cin >> c;
-    while (c != 'f' && c != 'F' && c != 'r' && c != 'R'){
-        cout << "Invalid input !\nPress [F] to fight or [R] to run\n";
+    while (c != '1' && c != '2'){
+        cout << "Invalid input !\nPress [1] to " << option1 << " or [1] to " << option2 << "\n";
         cin >> c;
     }
-    return (c == 'f' || c == 'F');
+    return (c == '1');
 }
 
 bool fight(Player player) {
     Entity enemy = Entity("");
+    int initEnemyHealth = enemy.getHealth();
+    cout << "\n<!> You encountered " << enemy.getFullTitle() << " and they want to fight you !\n";
     int i = 0;
-    while (player.isAlive() && enemy.isAlive()){
+    while (player.isAlive(true) && enemy.isAlive(true)){
+        cout << "\n" << player.getFullTitle() << " [ " << player.getHealth() << " / " << DEF_HEALTH << " HP ]\n";
+        cout << enemy.getFullTitle() << " [ " << enemy.getHealth() << " / " << initEnemyHealth << " HP ]\n";
         if (i%2 == 0){
-            
+            cout << "Your turn !\n";
+            if (choice("attack", "run")){
+                player.attack(enemy);
+            }
+            else {
+                if (player.runFrom(enemy)){
+                    break;
+                }
+            }
         }
+        else {
+            cout << "The enemy's turn !\n";
+            enemy.attack(player);
+        }
+        i++;
     }
-    return true;
+    return (player.isAlive(false));
 }
 
 int main() {
     srand(time(NULL));
-    Player player = setup();
-    choice();
-
+    do {
+        Player player = setup();
+        while (choice("fight", "quit")){
+            if (!fight(player)){
+                cout << "<!> You lost !\n";
+                break;
+            }
+            else {
+                cout << "<!> You win the encounter !\n";
+            }
+        }
+    } while (choice("play again", "quit"));
+    cout << "\n***************\n** GAME OVER **\n***************\n~~ Thanks for playing ! ~~\n";
     return 0;
 }
